@@ -21,14 +21,12 @@ else
 fi
 
 # 3. 自动获取本机 SSH 端口
-# 逻辑：先从配置文件找，如果配置文件没写（默认 22），则通过网络监听确认
 SSH_PORT=$(grep "^Port " /etc/ssh/sshd_config | awk '{print $2}' | tr '\n' ',' | sed 's/,$//')
 
 if [ -z "$SSH_PORT" ]; then
     SSH_PORT=$(ss -tlnp | grep sshd | awk '{print $4}' | awk -F: '{print $NF}' | sort -u | tr '\n' ',' | sed 's/,$//')
 fi
 
-# 如果还是没找到，兜底设置为 22
 if [ -z "$SSH_PORT" ]; then
     SSH_PORT="22"
 fi
@@ -36,8 +34,7 @@ fi
 echo "检测到 SSH 端口为: $SSH_PORT"
 
 # 4. 写入通用优化配置
-# 使用 backend=systemd 以配合之前优化的日志限额
-# 增加 bantime 至 24h 以应对高频攻击
+# 使用 backend=systemd 以兼容没有 /var/log/auth.log 的系统
 cat <<EOF > /etc/fail2ban/jail.local
 [DEFAULT]
 # 忽略回环地址
@@ -55,11 +52,15 @@ banaction = iptables-allports
 enabled = true
 port    = $SSH_PORT
 filter  = sshd
-# 使用 systemd 后端，检索效率最高
 backend = systemd
 EOF
 
-# 5. 启动并设置自启
+# 5. 写入 sshd-session 兼容性补丁 (关键一步)
+# 解决 OpenSSH 9.8+ 进程名变更导致的识别失效问题
+echo "正在配置 sshd-session 兼容性补丁..."
+echo -e "[Definition]\nprefregex = ^(<?[^ \\\\t\\\\n\\\\r\\\\f\\\\v]+>? )?(?:sshd(?:-session)?|sshd-session)\\\\[<PID>\\\\]: <CONTENT>$" > /etc/fail2ban/filter.d/sshd.local
+
+# 6. 启动并设置自启
 systemctl daemon-reload
 systemctl enable fail2ban
 systemctl restart fail2ban
@@ -67,6 +68,6 @@ systemctl restart fail2ban
 echo "------------------------------------------------"
 echo "部署完成！"
 echo "当前监控端口: $SSH_PORT"
-echo "封禁策略: 10分钟内失败3次，封禁所有端口24小时"
+echo "适配模式: 兼容 sshd 及 sshd-session (OpenSSH 9.8+)"
 echo "查看状态命令: fail2ban-client status sshd"
 echo "------------------------------------------------"
