@@ -44,8 +44,8 @@ cat <<EOF > /etc/fail2ban/jail.local
 ignoreip = 127.0.0.1/8 ::1
 # 封禁时间 24 小时
 bantime  = 24h
-# 统计周期 10 分钟
-findtime = 10m
+# 统计周期 30 分钟
+findtime = 30m
 # 失败 3 次即封禁
 maxretry = 3
 # 封禁该 IP 的所有端口
