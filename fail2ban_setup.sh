@@ -57,7 +57,6 @@ port    = $SSH_PORT
 filter  = sshd
 # 使用 systemd 后端，检索效率最高
 backend = systemd
-journalmatch = _SYSTEMD_UNIT=ssh.service + _COMM=sshd + _COMM=sshd-session
 EOF
 
 # 5. 启动并设置自启
